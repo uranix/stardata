@@ -23,6 +23,75 @@ void put(ostream &f, T value) {
     f.write(helper.buf, sizeof(T));
 }
 
+struct ind {
+    int s;
+    ptrdiff_t i, j, k;
+};
+
+ind probe(float x, float y, float z, const fort::array<1, float> &r, const int nr, const int n) {
+    float yz = std::max(std::abs(y), std::abs(z));
+    float xz = std::max(std::abs(x), std::abs(z));
+    float xy = std::max(std::abs(x), std::abs(y));
+
+    float rr = sqrt(x * x + y * y + z * z);
+
+    int k = std::lower_bound(&r(0), &r(nr) + 1, rr) - &r(0);
+    if (k < 1)
+        k = 1;
+    if (k > nr)
+        k = nr;
+
+    int s;
+    float phi, psi;
+    if (-x >= yz) {
+        s = 1;
+        phi = std::atan2(-y, -x);
+        psi = std::atan2(+z, -x);
+    } else if (+z >= xy) {
+        s = 2;
+        phi = std::atan2(-y, +z);
+        psi = std::atan2(+x, +z);
+    } else if (+y >= xz) {
+        s = 3;
+        phi = std::atan2(-x, +y);
+        psi = std::atan2(+z, +y);
+    } else if (-y >= xz) {
+        s = 4;
+        phi = std::atan2(+x, -y);
+        psi = std::atan2(+z, -y);
+    } else if (+x >= yz) {
+        s = 5;
+        phi = std::atan2(+y, +x);
+        psi = std::atan2(+z, +x);
+    } else { /* -z >= xy */
+        s = 6;
+        phi = std::atan2(-y, -z);
+        psi = std::atan2(-x, -z);
+    }
+
+    float pi2 = 2 * std::atan(1.);
+    phi /= pi2;
+    psi /= pi2;
+    phi += .5;
+    psi += .5;
+    phi *= n;
+    psi *= n;
+
+    int i, j;
+    i = phi + 1;
+    j = psi + 1;
+    if (i < 1)
+        i = 1;
+    if (i > n)
+        i = n;
+    if (j < 1)
+        j = 1;
+    if (j > n)
+        j = n;
+
+    return ind{s, i, j, k};
+}
+
 int main() {
     fstream grid("grid", ios::in | ios::binary);
 
@@ -57,7 +126,7 @@ int main() {
         cout << "Unread data left in dat" << endl;
     dat.close();
 
-    const int Nr = 1;
+    const int Nr = nr;
 
     for (int side = 1; side <= 6; side++) {
         ofstream vtk("side." + to_string(side) + ".vtk");
@@ -80,6 +149,22 @@ int main() {
         const int ncells = n * n * Nr;
         vtk << "CELL_DATA " << ncells << endl;
 
+        vtk << "SCALARS del float\nLOOKUP_TABLE default\n";
+        for (ptrdiff_t k = 1; k <= Nr; k++)
+            for (ptrdiff_t j = 1; j <= n; j++)
+                for (ptrdiff_t i = 1; i <= n; i++) {
+                    float rr = 0.5 * (r(k-1) + r(k));
+                    float xx = 0.5 * (x(i-1, j-1, side) + x(i, j, side));
+                    float yy = 0.5 * (y(i-1, j-1, side) + y(i, j, side));
+                    float zz = 0.5 * (z(i-1, j-1, side) + z(i, j, side));
+                    const auto &ijk = probe(rr * xx, rr * yy, rr * zz, r, nr, n);
+                    float del =
+                        std::abs(ijk.s - side) +
+                        std::abs(ijk.i - i) +
+                        std::abs(ijk.j - j) +
+                        std::abs(ijk.k - k);
+                    put<float>(vtk, del);
+                }
         vtk << "SCALARS rho float\nLOOKUP_TABLE default\n";
         for (ptrdiff_t k = 1; k <= Nr; k++)
             for (ptrdiff_t j = 1; j <= n; j++)

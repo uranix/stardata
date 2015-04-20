@@ -20,13 +20,13 @@ class array {
     range dims[n];
 
     template<int m>
-    ptrdiff_t idx(ptrdiff_t i) {
+    ptrdiff_t idx(ptrdiff_t i) const {
         static_assert(m == n - 1, "Index parameters mismatch array dimension");
         return dims[m].zero_based(i);
     }
 
     template<int m, typename ...Args>
-    ptrdiff_t idx(ptrdiff_t i, const Args &...args) {
+    ptrdiff_t idx(ptrdiff_t i, const Args &...args) const {
         return dims[m].zero_based(i) + dims[m].size() * idx<m + 1>(args...);
     }
     template<int m>
