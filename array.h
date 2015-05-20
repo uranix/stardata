@@ -68,7 +68,6 @@ inline std::istream &operator>>(std::istream &i, array<n, T> &z) {
     i.read(reinterpret_cast<char *>(c.data()), c.size() * sizeof(float));
     return i;
 }
-
 }
-
 #endif
+
